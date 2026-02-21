@@ -7,7 +7,7 @@ export function getAvailablePort(preferred: number): Promise<number> {
       if (err.code === 'EADDRINUSE') {
         const fallback = createServer();
         fallback.once('error', reject);
-        fallback.listen(0, '127.0.0.1', () => {
+        fallback.listen(0, () => {
           const port = (fallback.address() as { port: number }).port;
           fallback.close(() => resolve(port));
         });
@@ -15,7 +15,7 @@ export function getAvailablePort(preferred: number): Promise<number> {
         reject(err);
       }
     });
-    server.listen(preferred, '127.0.0.1', () => {
+    server.listen(preferred, () => {
       const port = (server.address() as { port: number }).port;
       server.close(() => resolve(port));
     });

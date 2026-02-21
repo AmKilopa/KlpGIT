@@ -11,7 +11,7 @@ const LANG_MAP: Record<string, string> = {
   py: 'py', pyw: 'py',
   css: 'css', scss: 'css', less: 'css',
   json: 'json', jsonc: 'json',
-  html: 'html', htm: 'html', xml: 'html', svg: 'html', vue: 'html', svelte: 'html',
+  html: 'html', htm: 'html', xml: 'html', svg: 'html', vue: 'html', svelte: 'html', astro: 'html',
   md: 'md', mdx: 'md',
   rb: 'rb', ruby: 'rb',
   go: 'go',
@@ -23,6 +23,7 @@ const LANG_MAP: Record<string, string> = {
   toml: 'toml',
   sql: 'sql',
   php: 'php',
+  txt: 'txt',
 };
 
 const JS_RE = /(?<comment>\/\/.*$|\/\*[\s\S]*?\*\/)|(?<string>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(?<number>\b\d+\.?\d*(?:e[+-]?\d+)?\b)|(?<keyword>\b(?:const|let|var|function|class|if|else|return|import|export|from|async|await|for|while|do|try|catch|throw|new|typeof|instanceof|interface|type|enum|extends|implements|default|switch|case|break|continue|finally|void|delete|yield|of|in|as|super|this|static|public|private|protected|readonly|abstract|declare|module|namespace|require|keyof|infer)\b)|(?<bool>\b(?:true|false|null|undefined|NaN|Infinity)\b)|(?<fn>\b[a-zA-Z_$][\w$]*(?=\s*\())|(?<type>\b[A-Z][\w]*\b)/gm;

@@ -4,7 +4,8 @@ export type ValidationKey =
   | 'missingNewline'
   | 'todoComments'
   | 'consoleStmts'
-  | 'mixedIndent';
+  | 'mixedIndent'
+  | 'fileTooLarge';
 
 export interface ValidationIssue {
   type: 'warning' | 'info';
@@ -16,6 +17,10 @@ export interface ValidationIssue {
 export function validateFile(content: string): ValidationIssue[] {
   const lines = content.split('\n');
   const issues: ValidationIssue[] = [];
+
+  if (content.length > 100 * 1024) {
+    issues.push({ type: 'warning', key: 'fileTooLarge', count: 1 });
+  }
 
   const longLineNums = lines.reduce<number[]>((acc, l, i) => {
     if (l.length > 120) acc.push(i + 1);

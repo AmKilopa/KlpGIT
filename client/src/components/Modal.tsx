@@ -20,11 +20,11 @@ export function SubmitModal({
 }: SubmitModalProps) {
   const { t } = useI18n();
   const [message, setMessage] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (modal === 'message') {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => textareaRef.current?.focus(), 50);
     }
   }, [modal]);
 
@@ -68,17 +68,22 @@ export function SubmitModal({
           <>
             <h2>{t.commitMessage}</h2>
             <p className="modal-desc">{t.commitMessageHint}</p>
-            <input
-              ref={inputRef}
-              className="modal-input"
+            <textarea
+              ref={textareaRef}
+              className="modal-input modal-input-multiline"
               placeholder={t.commitPlaceholder}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !loading) handleSubmit();
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !loading) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
                 if (e.key === 'Escape') onClose();
               }}
+              rows={4}
             />
+            <p className="modal-desc modal-hint">{t.commitSubmitHint}</p>
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={onBack}>&larr; {t.back}</button>
               <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>

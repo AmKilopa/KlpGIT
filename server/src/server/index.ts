@@ -130,7 +130,13 @@ export function startServer(cwd: string, port: number) {
     const ping = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.ping();
     }, 30000);
+    
+    ws.on('pong', () => {});
     ws.on('close', () => {
+      clients.delete(ws);
+      clearInterval(ping);
+    });
+    ws.on('error', () => {
       clients.delete(ws);
       clearInterval(ping);
     });
@@ -174,16 +180,40 @@ export function startServer(cwd: string, port: number) {
   watcher.on('change', notifyChange);
   watcher.on('unlink', notifyChange);
 
-  const shutdown = () => {
+  let isShuttingDown = false;
+
+  function shutdown() {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
     console.log('\n\x1b[90m→ Shutting down...\x1b[0m');
+    
     watcher.close();
-    server.close(() => process.exit(0));
-  };
+    
+    for (const ws of clients) {
+      ws.terminate();
+    }
+    clients.clear();
+
+    server.close((err) => {
+      if (err) {
+        console.error('Server close error:', err);
+      }
+      console.log('\x1b[90m→ Server closed\x1b[0m');
+      process.exit(0);
+    });
+
+    setTimeout(() => {
+      console.error('\x1b[91mForce exit\x1b[0m');
+      process.exit(1);
+    }, 3000);
+  }
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+  process.on('uncaughtException', shutdown);
 
-  server.listen(port, () => {});
+  server.listen(port, '127.0.0.1', () => {});
 
   return { server, watcher, port };
 }

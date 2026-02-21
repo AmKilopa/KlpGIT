@@ -6,12 +6,19 @@ export default defineConfig({
   build: {
     outDir: '../web',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: '[name].js',
+        chunkFileNames: '[name].js',
+        assetFileNames: '[name].[ext]',
+      },
+    },
   },
   server: {
     proxy: {
-      '/api': `http://localhost:${process.env.KLPGIT_PORT || 4219}`,
+      '/api': 'http://localhost:4219',
       '/ws': {
-        target: `ws://localhost:${process.env.KLPGIT_PORT || 4219}`,
+        target: 'ws://localhost:4219',
         ws: true,
       },
     },

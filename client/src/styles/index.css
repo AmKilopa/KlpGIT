@@ -353,6 +353,8 @@ body {
 }
 .modal-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12); }
 .modal-input::placeholder { color: var(--text3); }
+.modal-input-multiline { min-height: 100px; resize: vertical; }
+.modal-hint { margin-top: 6px; margin-bottom: 0; font-size: 11px; color: var(--text3); }
 .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
 .modal-option {
   display: flex; align-items: center; gap: 12px;
