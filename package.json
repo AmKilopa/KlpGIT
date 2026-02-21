@@ -1,0 +1,49 @@
+{
+  "name": "klpgit",
+  "version": "0.0.1",
+  "description": "Beautiful web-based Git GUI — run klpgit, get a local dashboard in your browser",
+  "main": "dist/cli.js",
+  "type": "module",
+  "bin": {
+    "klpgit": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "cd client && npm install && npm run build",
+    "build:server": "tsc -p server/tsconfig.json",
+    "build:mock": "cd client && npm run build:mock",
+    "start": "node dist/cli.js",
+    "dev": "cd client && npm run dev",
+    "dev:mock": "cd client && npm run dev:mock",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "git",
+    "gui",
+    "web",
+    "cli",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "chokidar": "^3.5.3",
+    "express": "^4.18.2",
+    "open": "^10.1.0",
+    "simple-git": "^3.22.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.0"
+  },
+  "files": [
+    "dist",
+    "web"
+  ]
+}

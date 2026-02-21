@@ -1,0 +1,10 @@
+node_modules/
+dist/
+web/
+*.log
+*.tsbuildinfo
+.env
+.klpgit/
+.DS_Store
+Thumbs.db
+frontend/node_modules/
