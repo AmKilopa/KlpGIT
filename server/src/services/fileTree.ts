@@ -23,7 +23,8 @@ function shouldIgnore(name: string, gitignorePatterns: string[]): boolean {
   return false;
 }
 
-function readDir(basePath: string, relPath: string, gitignorePatterns: string[]): TreeEntry[] {
+function readDir(basePath: string, relPath: string, gitignorePatterns: string[], depth: number, maxDepth: number): TreeEntry[] {
+  if (depth > maxDepth) return [];
   const fullPath = join(basePath, relPath);
   let entries: string[];
   try {
@@ -61,7 +62,7 @@ function readDir(basePath: string, relPath: string, gitignorePatterns: string[])
     };
 
     if (isDir) {
-      node.children = readDir(basePath, rel, gitignorePatterns);
+      node.children = readDir(basePath, rel, gitignorePatterns, depth + 1, maxDepth);
     }
 
     result.push(node);
@@ -70,7 +71,7 @@ function readDir(basePath: string, relPath: string, gitignorePatterns: string[])
   return result;
 }
 
-export function getFileTree(cwd: string): TreeEntry[] {
+export function getFileTree(cwd: string, maxDepth = 10): TreeEntry[] {
   let gitignorePatterns: string[] = [];
   const gitignorePath = join(cwd, '.gitignore');
   if (existsSync(gitignorePath)) {
@@ -82,5 +83,5 @@ export function getFileTree(cwd: string): TreeEntry[] {
     } catch {}
   }
 
-  return readDir(cwd, '', gitignorePatterns);
+  return readDir(cwd, '', gitignorePatterns, 0, maxDepth);
 }

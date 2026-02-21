@@ -14,6 +14,10 @@ const __dirname = dirname(__filename);
 export function startServer(cwd: string, port: number) {
   const app = express();
   app.use(express.json());
+  app.use((_req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+  });
 
   const webDir = join(dirname(__dirname), '..', 'web');
   app.use(express.static(webDir));
@@ -123,7 +127,13 @@ export function startServer(cwd: string, port: number) {
 
   wss.on('connection', (ws) => {
     clients.add(ws);
-    ws.on('close', () => clients.delete(ws));
+    const ping = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.ping();
+    }, 30000);
+    ws.on('close', () => {
+      clients.delete(ws);
+      clearInterval(ping);
+    });
   });
 
   function broadcast(event: string, data?: any) {
@@ -163,6 +173,15 @@ export function startServer(cwd: string, port: number) {
   watcher.on('add', notifyChange);
   watcher.on('change', notifyChange);
   watcher.on('unlink', notifyChange);
+
+  const shutdown = () => {
+    console.log('\n\x1b[90m→ Shutting down...\x1b[0m');
+    watcher.close();
+    server.close(() => process.exit(0));
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 
   server.listen(port, () => {});
 

@@ -18,35 +18,36 @@ export async function getFullStatus(cwd: string) {
   let remoteUrl = '';
   try {
     const remotes = await git.getRemotes(true);
-    const origin = remotes.find((r: { name: string }) => r.name === 'origin') as any;
-    remoteUrl = origin?.refs?.fetch || origin?.refs?.push || '';
+    const origin = remotes.find((r: { name: string; refs?: { fetch?: string; push?: string } }) => r.name === 'origin');
+    remoteUrl = origin?.refs?.fetch ?? origin?.refs?.push ?? '';
   } catch {}
 
-  const files: { path: string; status: string }[] = [];
-  const seen = new Set<string>();
-
+  const seen = new Map<string, string>();
   for (const f of status.staged) {
-    if (!seen.has(f)) { files.push({ path: f, status: 'staged' }); seen.add(f); }
+    if (!seen.has(f)) seen.set(f, 'staged');
   }
   for (const f of status.modified) {
-    if (!seen.has(f)) { files.push({ path: f, status: 'modified' }); seen.add(f); }
+    if (!seen.has(f)) seen.set(f, 'modified');
   }
   for (const f of status.not_added) {
-    if (!seen.has(f)) { files.push({ path: f, status: 'untracked' }); seen.add(f); }
+    if (!seen.has(f)) seen.set(f, 'untracked');
   }
   for (const f of status.created) {
-    if (!seen.has(f)) { files.push({ path: f, status: 'untracked' }); seen.add(f); }
+    if (!seen.has(f)) seen.set(f, 'untracked');
   }
   for (const f of status.deleted) {
-    if (!seen.has(f)) { files.push({ path: f, status: 'deleted' }); seen.add(f); }
+    if (!seen.has(f)) seen.set(f, 'deleted');
   }
+  const files = Array.from(seen.entries()).slice(0, 100).map(([path, status]) => ({ path, status }));
 
+  const total = seen.size;
+  const modifiedCount = Array.from(seen.values()).filter(s => s !== 'staged').length;
   return {
     branch,
     remoteUrl,
     staged: status.staged.length,
-    modified: files.filter(f => f.status !== 'staged').length,
-    total: files.length,
+    modified: modifiedCount,
+    total,
     files,
     ahead: status.ahead,
     behind: status.behind,
@@ -83,10 +84,13 @@ export async function commitAndPush(cwd: string, message: string, filesToAdd: st
   }
 
   const result = await git.commit(message);
-  const hash = result.commit || '';
+  const hash = result.commit ?? '';
 
   const status = await git.status();
-  const branch = status.current || 'main';
+  const branch = status.current ?? 'main';
+  try {
+    await git.pull();
+  } catch {}
   try {
     await git.push('origin', branch);
   } catch {

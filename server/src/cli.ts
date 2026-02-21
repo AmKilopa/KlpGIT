@@ -20,6 +20,7 @@ process.stdout.write('\x1Bc');
   if (port !== preferredPort) {
     console.log(`  \x1b[90m(порт ${preferredPort} занят, выбран ${port})\x1b[0m`);
   }
+  console.log('  \x1b[90mCtrl+C для выхода\x1b[0m');
   console.log('');
 
   const { server } = startServer(cwd, port);
