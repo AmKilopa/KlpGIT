@@ -116,3 +116,45 @@ export async function removeRemote(cwd: string) {
   const git = getGit(cwd);
   await git.removeRemote('origin');
 }
+
+export async function getLog(cwd: string, n: number = 30) {
+  const git = getGit(cwd);
+  const log = await git.log({ maxCount: n });
+  return log.all.map((c: { hash: string; message: string; date: string; author_name?: string }) => ({
+    hash: c.hash.slice(0, 7),
+    message: c.message.trim().split('\n')[0],
+    date: c.date,
+    author: c.author_name ?? '',
+  }));
+}
+
+export async function getBranches(cwd: string) {
+  const git = getGit(cwd);
+  const branches = await git.branch();
+  return { current: branches.current, all: branches.all };
+}
+
+export async function checkoutBranch(cwd: string, name: string) {
+  const git = getGit(cwd);
+  await git.checkout(name);
+}
+
+export async function stashList(cwd: string) {
+  const git = getGit(cwd);
+  const list = await git.stashList();
+  return list.all.map((s: { hash: string; message: string; date: string }) => ({
+    hash: s.hash,
+    message: s.message.trim(),
+    date: s.date,
+  }));
+}
+
+export async function stashSave(cwd: string, message?: string) {
+  const git = getGit(cwd);
+  await git.stash(['push', ...(message ? ['-m', message] : [])]);
+}
+
+export async function stashPop(cwd: string) {
+  const git = getGit(cwd);
+  await git.stash(['pop']);
+}

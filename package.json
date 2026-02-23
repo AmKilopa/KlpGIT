@@ -1,6 +1,6 @@
 {
   "name": "klpgit",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Beautiful web-based Git GUI — run klpgit, get a local dashboard in your browser",
   "main": "dist/cli.js",
   "type": "module",
@@ -8,7 +8,8 @@
     "klpgit": "./dist/cli.js"
   },
   "scripts": {
-    "build": "npm run build:client && npm run build:server",
+    "build": "node -e \"const fs=require('fs'),path=require('path'),r=process.cwd();[['server/src/version.generated.ts',\\\"export const VERSION = '0.0.1';\\n\\\"],['client/.env.production','VITE_APP_VERSION=0.0.1\\n']].forEach(([f,v])=>{const p=path.join(r,f);try{fs.readFileSync(p)}catch{fs.writeFileSync(p,v)}})\" && npm run build:client && npm run build:server",
+    "release": "node scripts/release.cjs",
     "build:client": "cd client && npm install && npm run build",
     "build:server": "tsc -p server/tsconfig.json",
     "build:mock": "cd client && npm run build:mock",

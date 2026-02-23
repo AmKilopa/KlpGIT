@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { startServer } from './server/index.js';
 import { getAvailablePort } from './port.js';
+import { VERSION } from './version.generated.js';
 import { exec } from 'child_process';
 import open from 'open';
 
@@ -14,7 +15,7 @@ process.stdout.write('\x1Bc');
   const url = `http://localhost:${port}`;
 
   console.log('');
-  console.log('  \x1b[35m\x1b[1mKlpGit\x1b[0m \x1b[90mv0.0.1\x1b[0m');
+  console.log(`  \x1b[35m\x1b[1mKlpGit\x1b[0m \x1b[90mv${VERSION}\x1b[0m`);
   console.log('');
   console.log(`  \x1b[36m→\x1b[0m ${url}`);
   if (port !== preferredPort) {

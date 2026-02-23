@@ -91,7 +91,7 @@ export const mockFileByPath: Record<string, { content: string; language: string 
     language: 'tsx',
   },
   'package.json': {
-    content: '{\n  "name": "klpgit",\n  "version": "0.0.1"\n}\n',
+    content: '{\n  "name": "klpgit",\n  "version": "0.0.0"\n}\n',
     language: 'json',
   },
 };

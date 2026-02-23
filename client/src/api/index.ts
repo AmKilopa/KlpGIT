@@ -1,4 +1,4 @@
-import type { GitStatus, TreeEntry, ProjectInfo } from '../types';
+import type { GitStatus, TreeEntry, ProjectInfo, CommitLogEntry, BranchesInfo, StashEntry } from '../types';
 import {
   mockProjectInfo,
   mockStatus,
@@ -42,6 +42,24 @@ function createRealApi() {
       }),
     disconnect: () =>
       request<{ ok: boolean }>('disconnect', { method: 'POST' }),
+    log: (n?: number) =>
+      request<CommitLogEntry[]>('log' + (n != null ? '?n=' + n : '')),
+    branches: () => request<BranchesInfo>('branches'),
+    checkout: (branch: string) =>
+      request<{ ok: boolean; status: GitStatus }>('checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch }),
+      }),
+    stash: () => request<StashEntry[]>('stash'),
+    stashSave: (message?: string) =>
+      request<{ ok: boolean; status: GitStatus }>('stash/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      }),
+    stashPop: () =>
+      request<{ ok: boolean; status: GitStatus }>('stash/pop', { method: 'POST' }),
   };
 }
 
@@ -59,6 +77,12 @@ function createMockApi() {
       mockRequest({ ok: true, hash: 'mock-hash', branch: 'main' }),
     init: () => mockRequest({ ok: true }),
     disconnect: () => mockRequest({ ok: true }),
+    log: () => mockRequest([{ hash: 'a1b2c3d', message: 'Initial commit', date: new Date().toISOString(), author: 'Dev' }]),
+    branches: () => mockRequest({ current: 'main', all: ['main'] }),
+    checkout: () => mockRequest({ ok: true, status: mockStatus }),
+    stash: () => mockRequest([]),
+    stashSave: () => mockRequest({ ok: true, status: mockStatus }),
+    stashPop: () => mockRequest({ ok: true, status: mockStatus }),
   };
 }
 

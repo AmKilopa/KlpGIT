@@ -57,6 +57,17 @@ const en = {
   initRepo: 'Initialize Repository',
   unlinkRepo: 'Disconnect',
   repoUnlinked: 'Remote disconnected!',
+  history: 'History',
+  branches: 'Branches',
+  switchBranch: 'Switch branch',
+  stash: 'Stash',
+  stashSave: 'Stash changes',
+  stashPop: 'Pop stash',
+  noStash: 'No stash entries',
+  themeLight: 'Light',
+  themeDark: 'Dark',
+  shortcuts: 'Shortcuts',
+  shortcutsHint: '? — this help, Escape — close',
 };
 
 const ru: typeof en = {
@@ -114,6 +125,17 @@ const ru: typeof en = {
   initRepo: 'Инициализировать',
   unlinkRepo: 'Отвязать',
   repoUnlinked: 'Удалённый репозиторий отвязан!',
+  history: 'История',
+  branches: 'Ветки',
+  switchBranch: 'Переключить ветку',
+  stash: 'Stash',
+  stashSave: 'Спрятать изменения',
+  stashPop: 'Вернуть из stash',
+  noStash: 'Нет записей в stash',
+  themeLight: 'Светлая',
+  themeDark: 'Тёмная',
+  shortcuts: 'Горячие клавиши',
+  shortcutsHint: '? — подсказка, Escape — закрыть',
 };
 
 export type Translations = typeof en;

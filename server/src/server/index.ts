@@ -5,7 +5,7 @@ import { watch } from 'chokidar';
 import { join, dirname, resolve } from 'path';
 import { readFileSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { getFullStatus, getDiff, commitAndPush, addFiles, initRepo, removeRemote, hasGitRepo } from '../services/git.js';
+import { getFullStatus, getDiff, commitAndPush, addFiles, initRepo, removeRemote, hasGitRepo, getLog, getBranches, checkoutBranch, stashList, stashSave, stashPop } from '../services/git.js';
 import { getFileTree } from '../services/fileTree.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,9 +31,10 @@ export function startServer(cwd: string, port: number) {
     }
   });
 
-  app.get('/api/tree', async (_req, res) => {
+  app.get('/api/tree', async (req, res) => {
     try {
-      const tree = getFileTree(cwd);
+      const maxDepth = Math.min(20, Math.max(1, parseInt(req.query.maxDepth as string, 10) || 10));
+      const tree = getFileTree(cwd, maxDepth);
       res.json(tree);
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -120,6 +121,67 @@ export function startServer(cwd: string, port: number) {
     });
   });
 
+  app.get('/api/log', async (req, res) => {
+    try {
+      const n = Math.min(100, Math.max(1, parseInt(req.query.n as string, 10) || 30));
+      const log = await getLog(cwd, n);
+      res.json(log);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.get('/api/branches', async (_req, res) => {
+    try {
+      const branches = await getBranches(cwd);
+      res.json(branches);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post('/api/checkout', async (req, res) => {
+    try {
+      const { branch } = req.body;
+      if (!branch || typeof branch !== 'string') { res.status(400).json({ error: 'Branch name required' }); return; }
+      await checkoutBranch(cwd, branch);
+      const status = await getFullStatus(cwd);
+      res.json({ ok: true, status });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.get('/api/stash', async (_req, res) => {
+    try {
+      const list = await stashList(cwd);
+      res.json(list);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post('/api/stash/save', async (req, res) => {
+    try {
+      const { message } = req.body;
+      await stashSave(cwd, typeof message === 'string' ? message : undefined);
+      const status = await getFullStatus(cwd);
+      res.json({ ok: true, status });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post('/api/stash/pop', async (_req, res) => {
+    try {
+      await stashPop(cwd);
+      const status = await getFullStatus(cwd);
+      res.json({ ok: true, status });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   const server = createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -183,6 +245,8 @@ export function startServer(cwd: string, port: number) {
   let isShuttingDown = false;
 
   function shutdown() {
+    process.off('SIGINT', shutdown);
+    process.off('SIGTERM', shutdown);
     if (isShuttingDown) return;
     isShuttingDown = true;
 

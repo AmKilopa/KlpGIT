@@ -7,6 +7,7 @@ import { Toolbar } from './components/Toolbar';
 import { Sidebar } from './components/Sidebar';
 import { Content } from './components/Content';
 import { SubmitModal } from './components/Modal';
+import { LogModal } from './components/LogModal';
 import { ToastContainer } from './components/Toast';
 import { InitScreen } from './components/InitScreen';
 
@@ -27,6 +28,11 @@ function AppInner() {
   const [loading, setLoading] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('klpgit-theme') as 'dark' | 'light') || 'dark');
+  const [branches, setBranches] = useState<string[]>([]);
+  const [stashList, setStashList] = useState<unknown[]>([]);
+  const [logModalOpen, setLogModalOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const selectedFileRef = useRef(selectedFile);
   useEffect(() => { selectedFileRef.current = selectedFile; }, [selectedFile]);
@@ -40,6 +46,11 @@ function AppInner() {
   const removeToast = useCallback((id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('klpgit-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     (async () => {
@@ -124,11 +135,25 @@ function AppInner() {
       setStatus(s);
       setTree(tr);
       if (selectedFileRef.current) selectFile(selectedFileRef.current);
+      try {
+        const br = await api.branches();
+        setBranches(br.all || []);
+      } catch {}
+      try {
+        const st = await api.stash();
+        setStashList(Array.isArray(st) ? st : []);
+      } catch {}
       addToast(t.refreshed, 'info');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Failed', 'error');
     }
   }, [selectFile, addToast, t]);
+
+  useEffect(() => {
+    if (!status?.branch) return;
+    api.branches().then((br) => setBranches(br.all || [])).catch(() => {});
+    api.stash().then((st) => setStashList(Array.isArray(st) ? st : [])).catch(() => {});
+  }, [status?.branch]);
 
   const submit = useCallback(async (message: string) => {
     setLoading(true);
@@ -150,6 +175,44 @@ function AppInner() {
       setLoading(false);
     }
   }, [subMode, checked, selectFile, addToast]);
+
+  const checkout = useCallback(async (branch: string) => {
+    try {
+      const result = await api.checkout(branch);
+      setStatus(result.status);
+      const tr = await api.tree();
+      setTree(tr);
+      addToast(`${t.switchBranch}: ${branch}`, 'ok');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Failed', 'error');
+    }
+  }, [addToast, t]);
+
+  const handleStashSave = useCallback(async () => {
+    try {
+      const result = await api.stashSave();
+      setStatus(result.status);
+      const st = await api.stash();
+      setStashList(Array.isArray(st) ? st : []);
+      addToast(t.stashSave, 'ok');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Failed', 'error');
+    }
+  }, [addToast, t]);
+
+  const handleStashPop = useCallback(async () => {
+    try {
+      const result = await api.stashPop();
+      setStatus(result.status);
+      const [tr, st] = await Promise.all([api.tree(), api.stash()]);
+      setTree(tr);
+      setStashList(Array.isArray(st) ? st : []);
+      addToast(t.stashPop, 'ok');
+      if (selectedFileRef.current) selectFile(selectedFileRef.current);
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Failed', 'error');
+    }
+  }, [addToast, t, selectFile]);
 
   const disconnect = useCallback(async () => {
     try {
@@ -181,10 +244,21 @@ function AppInner() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setModal(null);
+        setLogModalOpen(false);
+        setShortcutsOpen(false);
+        return;
+      }
+      if (e.key === '?' && !(e.target as HTMLElement)?.closest('input, textarea')) {
+        setShortcutsOpen((v) => !v);
+        e.preventDefault();
+        return;
+      }
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.key === 's') { setModal('select'); setSubMode('all'); e.preventDefault(); }
-      if (e.key === 'r') { refresh(); e.preventDefault(); }
+      if (e.shiftKey && e.key === 'R') { refresh(); e.preventDefault(); }
+      if (e.shiftKey && e.key === 'S') { setModal('select'); setSubMode('all'); e.preventDefault(); }
       if (e.key === '/' || (e.key === 'k' && (e.metaKey || e.ctrlKey))) {
         e.preventDefault();
         document.getElementById('search-input')?.focus();
@@ -205,7 +279,7 @@ function AppInner() {
   if (!info.hasGit) {
     return (
       <div className="app">
-        <Titlebar name={info.name} wsConnected={wsConnected} />
+        <Titlebar name={info.name} wsConnected={wsConnected} theme={theme} onThemeToggle={() => setTheme((t) => t === 'dark' ? 'light' : 'dark')} />
         <InitScreen onInit={initRepo} />
         <ToastContainer toasts={toasts} onRemove={removeToast} />
       </div>
@@ -219,8 +293,19 @@ function AppInner() {
 
   return (
     <div className="app">
-      <Titlebar name={info.name} wsConnected={wsConnected} />
-      <Toolbar status={s} onRefresh={refresh} onSubmit={() => { setModal('select'); setSubMode('all'); }} onDisconnect={disconnect} />
+      <Titlebar name={info.name} wsConnected={wsConnected} theme={theme} onThemeToggle={() => setTheme((t) => t === 'dark' ? 'light' : 'dark')} />
+      <Toolbar
+        status={s}
+        branches={branches}
+        onRefresh={refresh}
+        onSubmit={() => { setModal('select'); setSubMode('all'); }}
+        onDisconnect={disconnect}
+        onCheckout={checkout}
+        onStashSave={handleStashSave}
+        onStashPop={handleStashPop}
+        onHistory={() => setLogModalOpen(true)}
+        stashCount={stashList.length}
+      />
       <div className="main">
         <Sidebar
           tree={tree} status={s} selectedFile={selectedFile}
@@ -241,7 +326,7 @@ function AppInner() {
           onModeChange={setSubMode}
           onNext={() => {
             if (subMode === 'checked' && checked.size === 0) {
-              addToast('noFilesChecked', 'error');
+              addToast(t.noFilesChecked, 'error');
               return;
             }
             setModal('message');
@@ -249,6 +334,16 @@ function AppInner() {
           onBack={() => setModal('select')}
           onSubmit={submit}
         />
+      )}
+      {logModalOpen && <LogModal onClose={() => setLogModalOpen(false)} />}
+      {shortcutsOpen && (
+        <div className="overlay" onClick={() => setShortcutsOpen(false)}>
+          <div className="modal shortcuts-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{t.shortcuts}</h2>
+            <p className="modal-desc">{t.shortcutsHint}</p>
+            <button type="button" className="btn btn-ghost" onClick={() => setShortcutsOpen(false)}>{t.cancel}</button>
+          </div>
+        </div>
       )}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>

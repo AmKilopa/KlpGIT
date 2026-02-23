@@ -32,3 +32,21 @@ export interface Toast {
   message: string;
   type: 'ok' | 'error' | 'info';
 }
+
+export interface CommitLogEntry {
+  hash: string;
+  message: string;
+  date: string;
+  author: string;
+}
+
+export interface BranchesInfo {
+  current: string;
+  all: string[];
+}
+
+export interface StashEntry {
+  hash: string;
+  message: string;
+  date: string;
+}

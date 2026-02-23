@@ -5,6 +5,11 @@ web/
 *.tsbuildinfo
 .env
 .klpgit/
+.build
+.version-last
+client/.env.production
+server/src/version.generated.ts
+scripts/
 .DS_Store
 Thumbs.db
 frontend/node_modules/
