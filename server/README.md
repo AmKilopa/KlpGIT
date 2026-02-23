@@ -42,8 +42,10 @@ server/
 | `/api/status` | Полный статус Git: ветка, remote, список файлов, счётчики. |
 | `/api/tree` | Дерево файлов (папки и файлы, с учётом .gitignore). Query: `maxDepth` (1–20, по умолчанию 10). |
 | `/api/diff?file=<путь>` | Дифф по одному файлу. |
-| `/api/file?path=<путь>` | Содержимое файла и расширение для подсветки. |
-| `/api/log` | История коммитов. Query: `n` (1–100, по умолчанию 30). |
+| `/api/file?path=<путь>` | Содержимое файла и расширение для подсветки. Бинарные изображения — `encoding: "base64"`. |
+| `/api/log` | История коммитов. Query: `n` (1–100, по умолчанию 30). В каждом элементе: hash, message, date, author, avatarUrl (Gravatar по email). |
+| `/api/commit?hash=<short>` | Детали коммита: fullMessage, author, avatarUrl, parentHash, stats (filesChanged, insertions, deletions), files (path, status). |
+| `/api/commit/diff?hash=<short>&file=<путь>` | Дифф одного файла в коммите (только патч, без заголовка коммита). |
 | `/api/branches` | Список веток и текущая. |
 | `/api/stash` | Список записей stash. |
 
@@ -181,6 +183,37 @@ Content-Type: application/json
 {
   "content": "# Title\n\nText here.\n",
   "language": "md"
+}
+```
+
+Для бинарных изображений (png, jpg, gif, webp) ответ содержит `"encoding": "base64"` и содержимое в base64.
+
+**GET /api/commit?hash=dd0d6da**
+
+```json
+{
+  "hash": "dd0d6da",
+  "message": "feat: доработки",
+  "fullMessage": "feat: доработки\n\n1. - Пункт один",
+  "date": "2026-02-23T14:42:48+03:00",
+  "author": "AmKilopa",
+  "avatarUrl": "https://www.gravatar.com/avatar/...",
+  "parentHash": "fb398f7",
+  "stats": { "filesChanged": 18, "insertions": 468, "deletions": 30 },
+  "files": [
+    { "path": "client/src/App.tsx", "status": "M" },
+    { "path": "README.md", "status": "A" }
+  ]
+}
+```
+
+Статусы файлов: A (добавлен), M (изменён), D (удалён).
+
+**GET /api/commit/diff?hash=dd0d6da&file=README.md**
+
+```json
+{
+  "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1,3 +1,4 @@\n..."
 }
 ```
 

@@ -12,7 +12,7 @@ client/
     main.tsx           — точка входа, подключение стилей
     App.tsx            — главный экран, состояние, вызовы API, WebSocket
     api/               — слой запросов к серверу (или к mock)
-    components/        — UI: Titlebar, Toolbar, Sidebar, Content, Modal, Toast и др.
+    components/        — UI: Titlebar, Toolbar, Sidebar, Content, HistoryView, LogModal, SubmitModal, DisconnectConfirmModal, ConnectionLostScreen, Toast и др.
     i18n/              — тексты интерфейса (словари)
     lib/               — подсветка кода (highlight), проверки файлов (validate)
     mock/              — заглушки для mock-режима
@@ -53,7 +53,7 @@ client/
 
 ## Слой API (src/api/)
 
-- **src/api/index.ts** — объект `api`: методы `info()`, `status()`, `tree()`, `diff(file)`, `file(path)`, `submit(message, files)`, `init(remoteUrl?)`, `disconnect()`.
+- **src/api/index.ts** — объект `api`: методы `info()`, `status()`, `tree()`, `diff(file)`, `file(path)`, `log(n?)`, `commit(hash)`, `commitDiff(hash, file)`, `submit(message, files)`, `init(remoteUrl?)`, `disconnect()`.
 - Если в окружении выставлен **VITE_USE_MOCK=true** (режим mock), запросы не уходят на сервер — возвращаются данные из **src/mock/mockData.ts** (те же форматы, что у реального API).
 - Форматы ответов совпадают с [серверным API](../server/README.md#примеры-ответов).
 
