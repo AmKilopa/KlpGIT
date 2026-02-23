@@ -38,6 +38,14 @@ export interface CommitLogEntry {
   message: string;
   date: string;
   author: string;
+  avatarUrl?: string;
+}
+
+export interface CommitDetail extends CommitLogEntry {
+  fullMessage?: string;
+  parentHash?: string;
+  stats?: { filesChanged: number; insertions: number; deletions: number };
+  files: { path: string; status: string }[];
 }
 
 export interface BranchesInfo {
@@ -49,4 +57,10 @@ export interface StashEntry {
   hash: string;
   message: string;
   date: string;
+}
+
+export interface FileData {
+  content: string;
+  language: string;
+  encoding?: 'base64';
 }

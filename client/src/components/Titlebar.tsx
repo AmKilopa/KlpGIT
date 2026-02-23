@@ -1,7 +1,7 @@
 import { Sun, Moon } from 'lucide-react';
 import { useI18n } from '../i18n';
 
-const APP_VERSION = typeof import.meta.env.VITE_APP_VERSION === 'string' ? import.meta.env.VITE_APP_VERSION : '0.0.1';
+const APP_VERSION = typeof import.meta.env.VITE_APP_VERSION === 'string' ? import.meta.env.VITE_APP_VERSION : '0.0.0';
 
 interface TitlebarProps {
   name: string;

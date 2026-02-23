@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Package, ListChecks, Layers, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { MODAL_FOCUS_DELAY_MS } from '../constants';
 
 interface SubmitModalProps {
   modal: 'select' | 'message';
@@ -24,7 +25,7 @@ export function SubmitModal({
 
   useEffect(() => {
     if (modal === 'message') {
-      setTimeout(() => textareaRef.current?.focus(), 50);
+      setTimeout(() => textareaRef.current?.focus(), MODAL_FOCUS_DELAY_MS);
     }
   }, [modal]);
 

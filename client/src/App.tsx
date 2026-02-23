@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from './api';
-import type { GitStatus, TreeEntry, ProjectInfo, Toast } from './types';
+import type { GitStatus, TreeEntry, ProjectInfo, StashEntry } from './types';
 import { I18nProvider, useI18n } from './i18n';
+import { WS_RECONNECT_MS, noop, THEME_COLOR_DARK, THEME_COLOR_LIGHT } from './constants';
+import { useToast } from './hooks/useToast';
 import { Titlebar } from './components/Titlebar';
 import { Toolbar } from './components/Toolbar';
 import { Sidebar } from './components/Sidebar';
+import type { FileData } from './types';
 import { Content } from './components/Content';
-import { SubmitModal } from './components/Modal';
-import { LogModal } from './components/LogModal';
+import { SubmitModal } from './components/SubmitModal';
+import { HistoryView } from './components/HistoryView';
+import { DisconnectConfirmModal } from './components/DisconnectConfirmModal';
+import { ConnectionLostScreen } from './components/ConnectionLostScreen';
 import { ToastContainer } from './components/Toast';
 import { InitScreen } from './components/InitScreen';
 
@@ -18,7 +23,7 @@ function AppInner() {
   const [tree, setTree] = useState<TreeEntry[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [diff, setDiff] = useState('');
-  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [fileData, setFileData] = useState<FileData | null>(null);
   const [viewMode, setViewMode] = useState<'diff' | 'source' | 'checks'>('diff');
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -27,28 +32,33 @@ function AppInner() {
   const [subMode, setSubMode] = useState<'all' | 'checked' | 'staged'>('all');
   const [loading, setLoading] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const { toasts, addToast, removeToast } = useToast();
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('klpgit-theme') as 'dark' | 'light') || 'dark');
   const [branches, setBranches] = useState<string[]>([]);
-  const [stashList, setStashList] = useState<unknown[]>([]);
-  const [logModalOpen, setLogModalOpen] = useState(false);
+  const [stashList, setStashList] = useState<StashEntry[]>([]);
+  const [view, setView] = useState<'main' | 'history'>('main');
+  const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const useMock = import.meta.env.VITE_USE_MOCK === 'true';
 
   const selectedFileRef = useRef(selectedFile);
+  const themePrevRef = useRef(theme);
   useEffect(() => { selectedFileRef.current = selectedFile; }, [selectedFile]);
 
-  const addToast = useCallback((message: string, type: Toast['type'] = 'ok') => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
-  }, []);
-
-  const removeToast = useCallback((id: number) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
-
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    const isToggle = themePrevRef.current !== theme;
+    themePrevRef.current = theme;
+    const apply = () => {
+      document.documentElement.setAttribute('data-theme', theme);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', theme === 'dark' ? THEME_COLOR_DARK : THEME_COLOR_LIGHT);
+    };
+    if (isToggle) {
+      const id = requestAnimationFrame(apply);
+      localStorage.setItem('klpgit-theme', theme);
+      return () => cancelAnimationFrame(id);
+    }
+    apply();
     localStorage.setItem('klpgit-theme', theme);
   }, [theme]);
 
@@ -82,11 +92,13 @@ function AppInner() {
         try {
           const msg = JSON.parse(e.data);
           if (msg.event === 'status') setStatus(msg.data);
-        } catch {}
+        } catch (_) {
+          noop();
+        }
       };
       ws.onclose = () => {
         setWsConnected(false);
-        timer = window.setTimeout(connect, 2000);
+        timer = window.setTimeout(connect, WS_RECONNECT_MS);
       };
     };
     connect();
@@ -96,19 +108,19 @@ function AppInner() {
   const selectFile = useCallback(async (path: string) => {
     setSelectedFile(path);
     try {
-      const [diffData, fileData] = await Promise.all([api.diff(path), api.file(path)]);
+      const [diffData, data] = await Promise.all([api.diff(path), api.file(path)]);
       setDiff(diffData.diff);
-      setFileContent(fileData.content);
-      setViewMode(diffData.diff ? 'diff' : 'source');
+      setFileData(data);
+      setViewMode('source');
     } catch {
       try {
-        const fileData = await api.file(path);
-        setFileContent(fileData.content);
+        const data = await api.file(path);
+        setFileData(data);
         setDiff('');
         setViewMode('source');
       } catch {
         setDiff('');
-        setFileContent(null);
+        setFileData(null);
       }
     }
   }, []);
@@ -138,11 +150,15 @@ function AppInner() {
       try {
         const br = await api.branches();
         setBranches(br.all || []);
-      } catch {}
+      } catch (_) {
+        noop();
+      }
       try {
         const st = await api.stash();
         setStashList(Array.isArray(st) ? st : []);
-      } catch {}
+      } catch (_) {
+        noop();
+      }
       addToast(t.refreshed, 'info');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Failed', 'error');
@@ -151,8 +167,8 @@ function AppInner() {
 
   useEffect(() => {
     if (!status?.branch) return;
-    api.branches().then((br) => setBranches(br.all || [])).catch(() => {});
-    api.stash().then((st) => setStashList(Array.isArray(st) ? st : [])).catch(() => {});
+    api.branches().then((br) => setBranches(br.all || [])).catch(noop);
+    api.stash().then((st) => setStashList(Array.isArray(st) ? st : [])).catch(noop);
   }, [status?.branch]);
 
   const submit = useCallback(async (message: string) => {
@@ -174,7 +190,7 @@ function AppInner() {
     } finally {
       setLoading(false);
     }
-  }, [subMode, checked, selectFile, addToast]);
+  }, [subMode, checked, selectFile, addToast, t]);
 
   const checkout = useCallback(async (branch: string) => {
     try {
@@ -217,6 +233,7 @@ function AppInner() {
   const disconnect = useCallback(async () => {
     try {
       await api.disconnect();
+      setDisconnectConfirmOpen(false);
       addToast(t.repoUnlinked, 'ok');
       const [s, tr] = await Promise.all([api.status(), api.tree()]);
       setStatus(s);
@@ -246,7 +263,7 @@ function AppInner() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setModal(null);
-        setLogModalOpen(false);
+        setView('main');
         setShortcutsOpen(false);
         return;
       }
@@ -276,7 +293,8 @@ function AppInner() {
     );
   }
 
-  if (!info.hasGit) {
+  const showInitScreen = !info.hasGit || (status && status.remoteUrl === '');
+  if (showInitScreen) {
     return (
       <div className="app">
         <Titlebar name={info.name} wsConnected={wsConnected} theme={theme} onThemeToggle={() => setTheme((t) => t === 'dark' ? 'light' : 'dark')} />
@@ -294,16 +312,20 @@ function AppInner() {
   return (
     <div className="app">
       <Titlebar name={info.name} wsConnected={wsConnected} theme={theme} onThemeToggle={() => setTheme((t) => t === 'dark' ? 'light' : 'dark')} />
+      {view === 'history' ? (
+        <HistoryView onBack={() => setView('main')} />
+      ) : (
+        <>
       <Toolbar
         status={s}
         branches={branches}
         onRefresh={refresh}
         onSubmit={() => { setModal('select'); setSubMode('all'); }}
-        onDisconnect={disconnect}
+        onDisconnect={() => setDisconnectConfirmOpen(true)}
         onCheckout={checkout}
         onStashSave={handleStashSave}
         onStashPop={handleStashPop}
-        onHistory={() => setLogModalOpen(true)}
+        onHistory={() => setView('history')}
         stashCount={stashList.length}
       />
       <div className="main">
@@ -315,10 +337,22 @@ function AppInner() {
         />
         <Content
           selectedFile={selectedFile} diff={diff}
-          fileContent={fileContent} viewMode={viewMode}
+          fileData={fileData} viewMode={viewMode}
           onChangeViewMode={setViewMode}
         />
       </div>
+      </>
+      )}
+      {disconnectConfirmOpen && (
+        <DisconnectConfirmModal
+          repoName={info.name}
+          onConfirm={disconnect}
+          onCancel={() => setDisconnectConfirmOpen(false)}
+        />
+      )}
+      {!useMock && info?.hasGit && status?.remoteUrl && !wsConnected && (
+        <ConnectionLostScreen />
+      )}
       {modal && (
         <SubmitModal
           modal={modal} subMode={subMode} checkedCount={checked.size}
@@ -335,7 +369,6 @@ function AppInner() {
           onSubmit={submit}
         />
       )}
-      {logModalOpen && <LogModal onClose={() => setLogModalOpen(false)} />}
       {shortcutsOpen && (
         <div className="overlay" onClick={() => setShortcutsOpen(false)}>
           <div className="modal shortcuts-modal" onClick={(e) => e.stopPropagation()}>

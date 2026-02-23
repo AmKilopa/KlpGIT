@@ -1,6 +1,12 @@
 import simpleGit, { type SimpleGit } from 'simple-git';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { createHash } from 'crypto';
+
+function gravatarUrl(email: string): string {
+  const hash = createHash('md5').update((email || '').trim().toLowerCase()).digest('hex');
+  return `https://www.gravatar.com/avatar/${hash}?s=80&d=identicon`;
+}
 
 export function getGit(cwd: string): SimpleGit {
   return simpleGit({ baseDir: cwd });
@@ -20,7 +26,7 @@ export async function getFullStatus(cwd: string) {
     const remotes = await git.getRemotes(true);
     const origin = remotes.find((r: { name: string; refs?: { fetch?: string; push?: string } }) => r.name === 'origin');
     remoteUrl = origin?.refs?.fetch ?? origin?.refs?.push ?? '';
-  } catch {}
+  } catch (_) {}
 
   const seen = new Map<string, string>();
   for (const f of status.staged) {
@@ -58,8 +64,8 @@ export async function getDiff(cwd: string, file: string) {
   const git = getGit(cwd);
   let unstaged = '';
   let staged = '';
-  try { unstaged = await git.diff(['--', file]); } catch {}
-  try { staged = await git.diff(['--staged', '--', file]); } catch {}
+  try { unstaged = await git.diff(['--', file]); } catch (_) {}
+  try { staged = await git.diff(['--staged', '--', file]); } catch (_) {}
   return staged || unstaged || '';
 }
 
@@ -90,10 +96,10 @@ export async function commitAndPush(cwd: string, message: string, filesToAdd: st
   const branch = status.current ?? 'main';
   try {
     await git.pull();
-  } catch {}
+  } catch (_) {}
   try {
     await git.push('origin', branch);
-  } catch {
+  } catch (_) {
     await git.push(['-u', 'origin', branch]);
   }
 
@@ -108,7 +114,7 @@ export async function initRepo(cwd: string, remoteUrl?: string) {
   if (remoteUrl) {
     try {
       await git.addRemote('origin', remoteUrl);
-    } catch {}
+    } catch (_) {}
   }
 }
 
@@ -120,12 +126,98 @@ export async function removeRemote(cwd: string) {
 export async function getLog(cwd: string, n: number = 30) {
   const git = getGit(cwd);
   const log = await git.log({ maxCount: n });
-  return log.all.map((c: { hash: string; message: string; date: string; author_name?: string }) => ({
-    hash: c.hash.slice(0, 7),
-    message: c.message.trim().split('\n')[0],
-    date: c.date,
-    author: c.author_name ?? '',
-  }));
+  return log.all.map((c: { hash: string; message: string; date: string; author_name?: string; author_email?: string }) => {
+    const email = (c as { author_email?: string }).author_email ?? '';
+    return {
+      hash: c.hash.slice(0, 7),
+      message: c.message.trim().split('\n')[0],
+      date: c.date,
+      author: c.author_name ?? '',
+      avatarUrl: email ? gravatarUrl(email) : '',
+    };
+  });
+}
+
+export async function getCommitDetail(cwd: string, hashShort: string) {
+  const git = getGit(cwd);
+  const log = await git.log({ maxCount: 200 });
+  const entry = log.all.find((c: { hash: string; message: string; date: string; author_name?: string }) =>
+    c.hash.startsWith(hashShort)
+  );
+  if (!entry) {
+    throw new Error('Commit not found');
+  }
+  const fullHash = entry.hash;
+  const hash = fullHash.slice(0, 7);
+  const fullMessage = (entry.message ?? '').trim();
+  const message = fullMessage.split('\n')[0];
+  const dateStr = entry.date ?? '';
+  const author = (entry as { author_name?: string }).author_name ?? '';
+  let authorEmail = (entry as { author_email?: string }).author_email ?? '';
+  if (!authorEmail) {
+    try {
+      authorEmail = await git.raw(['show', fullHash, '-s', '--format=%ae']);
+      authorEmail = authorEmail.trim();
+    } catch (_) {}
+  }
+  let parentHash = '';
+  try {
+    parentHash = await git.raw(['rev-parse', fullHash + '^']);
+    parentHash = parentHash.trim().slice(0, 7);
+  } catch (_) {}
+  let files: { path: string; status: string }[] = [];
+  let filesChanged = 0;
+  let insertions = 0;
+  let deletions = 0;
+  try {
+    const out = await git.raw(['diff-tree', '--no-commit-id', '--name-status', '-r', fullHash]);
+    const lines = out.replace(/\r\n/g, '\n').trim().split('\n').filter(Boolean);
+    for (const line of lines) {
+      const tab = line.indexOf('\t');
+      if (tab === -1) continue;
+      const status = line.slice(0, tab).trim();
+      const rest = line.slice(tab + 1).trim();
+      const path = rest.includes('\t') ? rest.split('\t').pop() ?? rest : rest;
+      if (path) files.push({ path, status });
+    }
+    filesChanged = files.length;
+  } catch (_) {}
+  try {
+    const statOut = await git.raw(['show', fullHash, '--shortstat', '--format=']);
+    const m = statOut.match(/(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?/);
+    if (m) {
+      filesChanged = parseInt(m[1], 10) || filesChanged;
+      insertions = parseInt(m[2], 10) || 0;
+      deletions = parseInt(m[3], 10) || 0;
+    }
+  } catch (_) {}
+  return {
+    hash,
+    message,
+    fullMessage,
+    date: dateStr,
+    author,
+    avatarUrl: authorEmail ? gravatarUrl(authorEmail) : '',
+    parentHash,
+    stats: { filesChanged, insertions, deletions },
+    files,
+  };
+}
+
+export async function getCommitFileDiff(cwd: string, hashShort: string, filePath: string) {
+  const git = getGit(cwd);
+  const log = await git.log({ maxCount: 200 });
+  const entry = log.all.find((c: { hash: string }) => c.hash.startsWith(hashShort));
+  const fullHash = entry?.hash ?? hashShort;
+  try {
+    const diff = await git.raw(['diff', fullHash + '^', fullHash, '--', filePath]);
+    return typeof diff === 'string' ? diff : '';
+  } catch (_) {
+    const out = await git.raw(['show', fullHash, '--', filePath]);
+    const raw = typeof out === 'string' ? out : '';
+    const idx = raw.indexOf('diff --git');
+    return idx >= 0 ? raw.slice(idx) : raw;
+  }
 }
 
 export async function getBranches(cwd: string) {

@@ -1,6 +1,6 @@
 {
   "name": "klpgit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Beautiful web-based Git GUI — run klpgit, get a local dashboard in your browser",
   "main": "dist/cli.js",
   "type": "module",

@@ -4,7 +4,6 @@ web/
 *.log
 *.tsbuildinfo
 .env
-.klpgit/
 .build
 .version-last
 client/.env.production

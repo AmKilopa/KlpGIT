@@ -29,7 +29,7 @@ function readDir(basePath: string, relPath: string, gitignorePatterns: string[],
   let entries: string[];
   try {
     entries = readdirSync(fullPath);
-  } catch {
+  } catch (_) {
     return [];
   }
 
@@ -51,7 +51,7 @@ function readDir(basePath: string, relPath: string, gitignorePatterns: string[],
     let isDir: boolean;
     try {
       isDir = statSync(full).isDirectory();
-    } catch {
+    } catch (_) {
       continue;
     }
 
@@ -80,7 +80,7 @@ export function getFileTree(cwd: string, maxDepth = 10): TreeEntry[] {
         .split('\n')
         .map(l => l.trim())
         .filter(l => l && !l.startsWith('#'));
-    } catch {}
+    } catch (_) {}
   }
 
   return readDir(cwd, '', gitignorePatterns, 0, maxDepth);
